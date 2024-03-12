@@ -9,11 +9,12 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.RecyclerView
 import com.weather.app.R
-import com.weather.app.models.Weather
+import com.weather.app.models.ForecastModel
+import java.text.SimpleDateFormat
 
 class WeatherListAdapter(
-    val appCompatActivity: AppCompatActivity,
-    val weatherList: List<Weather>?
+    var appCompatActivity: AppCompatActivity,
+    var forecastModel: ForecastModel?
 ) : RecyclerView.Adapter<WeatherListAdapter.ViewHolder>() {
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -32,24 +33,29 @@ class WeatherListAdapter(
         val txtDay: TextView = view.findViewById(R.id.txtDay)
         val txtDegrees: TextView = view.findViewById(R.id.txtDegrees)
 
-        var weatherItem = weatherList?.firstOrNull()
-        txtDay.text = weatherItem?.description
-        txtDegrees.text = weatherItem?.description
-        imgListItem.background = getIconByWeatherText(weatherItem?.description)
+        var weatherItem = forecastModel?.list?.get(position)
+        txtDay.text = getDayString(weatherItem?.dt_txt)
+        txtDegrees.text = weatherItem?.main?.temp?.toString()
+        imgListItem.background = getIconByWeatherText(weatherItem?.weather?.firstOrNull()?.description)
     }
 
     override fun getItemCount(): Int {
-        return weatherList?.size ?: 0
+        return forecastModel?.list?.size ?: 0
     }
 
+    private fun getDayString(dt_txt: String?): String {
+        val sdf = SimpleDateFormat("yyyy-MM-dd hh:mm:ss")
+        val date = sdf.parse(dt_txt)
+        return SimpleDateFormat("EEEE").format(date)
+    }
     private fun getIconByWeatherText(description: String?): Drawable? {
-         val resourceId = when {
+        val resourceId = when {
             description?.toLowerCase()?.contains("rain") == true -> R.drawable.rain
-            description?.toLowerCase()?.contains("sunny") == true -> R.drawable.forest_sunny
-            description?.toLowerCase()?.contains("clouds") == true -> R.drawable.forest_cloudy
-            else -> R.drawable.forest_sunny
+            description?.toLowerCase()?.contains("sunny") == true -> R.drawable.partlysunny
+            description?.toLowerCase()?.contains("clouds") == true -> R.drawable.clear
+            else -> R.drawable.partlysunny
         }
-        val headerContainerBackgroundDrawable = appCompatActivity.getDrawable(resourceId)
+        val headerContainerBackgroundDrawable = appCompatActivity.resources.getDrawable(resourceId)
         return headerContainerBackgroundDrawable
     }
 }

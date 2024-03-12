@@ -1,6 +1,7 @@
 package com.weather.app.models
 
 import java.io.Serializable
+import java.util.Calendar
 
 data class ForecastModel(
     val cod: String,

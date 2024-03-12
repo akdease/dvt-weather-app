@@ -3,7 +3,10 @@ package com.weather.app.activities
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.RelativeLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
@@ -13,14 +16,20 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.weather.app.R
 import com.weather.app.adapters.WeatherListAdapter
 import com.weather.app.models.ForecastModel
+import com.weather.app.models.Main
+import com.weather.app.models.Weather
 import com.weather.app.models.WeatherModel
 import com.weather.app.viewModels.MainViewModel
 
-
 class MainActivity : BaseActivity() {
 
+    private lateinit var loadingOverlay: RelativeLayout
     private lateinit var homeSwiperfreshlayout: SwipeRefreshLayout
+    private lateinit var layoutBottomContainer: LinearLayout
     private lateinit var weatherDataRecyclerView: RecyclerView
+    private lateinit var txtMin: TextView
+    private lateinit var txtCurrent: TextView
+    private lateinit var txtMax: TextView
     private lateinit var txtDegrees: TextView
     private lateinit var txtWeather: TextView
     private lateinit var headerContainer: LinearLayout
@@ -39,8 +48,13 @@ class MainActivity : BaseActivity() {
     }
 
     fun initView() {
+        loadingOverlay = findViewById(R.id.loadingOverlay)
         homeSwiperfreshlayout = findViewById(R.id.homeSwiperfreshlayout)
+        layoutBottomContainer = findViewById(R.id.layoutBottomContainer)
         weatherDataRecyclerView = findViewById(R.id.weatherDataRecyclerView)
+        txtMin = findViewById(R.id.txtMin)
+        txtCurrent = findViewById(R.id.txtCurrent)
+        txtMax = findViewById(R.id.txtMax)
         txtDegrees = findViewById(R.id.txtDegrees)
         txtWeather = findViewById(R.id.txtWeather)
         headerContainer = findViewById(R.id.headerContainer)
@@ -48,14 +62,14 @@ class MainActivity : BaseActivity() {
         homeSwiperfreshlayout.setOnRefreshListener {
             runApi()
         }
+        weatherListAdapter = WeatherListAdapter(this, null)
 
         mainViewModel = MainViewModel(this)
-
         mainViewModel.mutableWeatherModel.observe(this) {
-            updateView(weatherModel = it)
+            updateViewForWeather(it)
         }
         mainViewModel.mutableForecastModel.observe(this) {
-            updateView(forecastModel = it)
+            updateViewForForecast(it)
         }
         mainViewModel.errorMessage.observe(this, {
             Toast.makeText(this, it, Toast.LENGTH_SHORT).show()
@@ -76,47 +90,62 @@ class MainActivity : BaseActivity() {
             requestPermissions()
     }
 
-    private fun updateView(weatherModel: WeatherModel? = null, forecastModel: ForecastModel? = null) {
-        if (weatherModel != null) {
-            val degrees = weatherModel.weather.firstOrNull()?.id.toString()
-            val description = weatherModel.weather.firstOrNull()?.description
+    private fun updateViewForWeather(
+        weatherModel: WeatherModel?
+    ) {
+        homeSwiperfreshlayout.isRefreshing = false
 
-            txtDegrees.text = degrees
-            txtWeather.text = description
+        val main = weatherModel?.main
+        val degrees = main?.temp?.toString()
+        val description = weatherModel?.weather?.firstOrNull()?.description
 
-            weatherListAdapter = WeatherListAdapter(this, weatherModel.weather)
-            weatherDataRecyclerView.adapter = weatherListAdapter
-            weatherListAdapter.notifyDataSetChanged()
+        txtDegrees.text = degrees
+        txtWeather.text = description
 
-            val imageResourceId = when {
-                description?.contains("rain") == true -> R.drawable.rain
-                description?.contains("sun") == true -> R.drawable.forest_sunny
-                description?.contains("cloud") == true -> R.drawable.forest_cloudy
-                else -> R.drawable.forest_sunny
-            }
-            val headerContainerBackgroundDrawable = getResources().getDrawable(imageResourceId)
-            headerContainer.background = headerContainerBackgroundDrawable
+        headerContainer.background =
+            getResources().getDrawable(getHeaderBackgroundByWeatherText(description))
+        layoutBottomContainer.setBackgroundColor(getColor(getListBackgroundColorByWeatherText(description)))
+    }
+
+    private fun updateViewForForecast(
+        forecastModel: ForecastModel?
+    ) {
+        homeSwiperfreshlayout.isRefreshing = false
+        hideProgressDialog()
+
+        val main = forecastModel?.list?.firstOrNull()?.main
+        txtMin.text = main?.temp_min.toString() + "\nmin"
+        txtCurrent.text = main?.temp.toString() + "\ncurrent"
+        txtMax.text = main?.temp_max.toString() + "\nmax"
+
+        weatherListAdapter = WeatherListAdapter(this, forecastModel)
+        weatherDataRecyclerView.adapter = weatherListAdapter
+        weatherListAdapter.notifyDataSetChanged()
+    }
+
+    private fun showProgressDialog() {
+        loadingOverlay.visibility = ViewGroup.VISIBLE
+    }
+
+    private fun hideProgressDialog() {
+        loadingOverlay.visibility = ViewGroup.GONE
+    }
+
+    private fun getHeaderBackgroundByWeatherText(description: String?): Int {
+        return when {
+            description?.toLowerCase()?.contains("rain") == true -> R.drawable.rain
+            description?.toLowerCase()?.contains("sunny") == true -> R.drawable.forest_sunny
+            description?.toLowerCase()?.contains("clouds") == true -> R.drawable.forest_cloudy
+            else -> R.drawable.forest_sunny
         }
+    }
 
-        if (forecastModel != null) {
-            val degrees = forecastModel.list.firstOrNull()?.weather?.firstOrNull()?.id.toString()
-            val description = forecastModel.list.firstOrNull()?.weather?.firstOrNull()?.description.toString()
-
-            txtDegrees.text = degrees
-            txtWeather.text = description
-
-            weatherListAdapter = WeatherListAdapter(this, forecastModel.list?.firstOrNull()?.weather)
-            weatherDataRecyclerView.adapter = weatherListAdapter
-            weatherListAdapter.notifyDataSetChanged()
-
-            val imageResourceId = when {
-                description?.contains("rain") == true -> R.drawable.rain
-                description?.contains("sun") == true -> R.drawable.forest_sunny
-                description?.contains("cloud") == true -> R.drawable.forest_cloudy
-                else -> R.drawable.forest_sunny
-            }
-            val headerContainerBackgroundDrawable = getResources().getDrawable(imageResourceId)
-            headerContainer.background = headerContainerBackgroundDrawable
+    private fun getListBackgroundColorByWeatherText(weatherText: String?): Int {
+        return when {
+            weatherText?.toLowerCase()?.contains("rain") == true -> R.color.rainy
+            weatherText?.toLowerCase()?.contains("sun") == true -> R.color.sunny
+            weatherText?.toLowerCase()?.contains("cloud") == true -> R.color.cloudy
+            else -> R.drawable.forest_sunny
         }
     }
 
